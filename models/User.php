@@ -31,9 +31,9 @@ class User {
      */
     public function register() {
         $query = "INSERT INTO " . $this->table . "
-                  (dni, nombre, apellido, email, password, rol, estado, fecha_registro, curso_division, materia)
+                  (dni, nombre, apellido, email, password, rol, estado, curso_division, materia)
                   VALUES
-                  (?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?)";
+                  (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         $stmt = $this->conn->prepare($query);
 
@@ -44,9 +44,9 @@ class User {
         // Hash de contrasena
         $password_hash = password_hash($this->password, PASSWORD_BCRYPT);
 
-        // Vincular parametros
+        // Vincular parametros - 9 parametros: s s s s s s s s s
         $stmt->bind_param(
-            'sssssss',
+            'sssssssss',
             $this->dni,
             $this->nombre,
             $this->apellido,
@@ -60,10 +60,13 @@ class User {
 
         // Ejecutar
         if ($stmt->execute()) {
+            $user_id = $stmt->insert_id;
             // Crear registro de reputacion inicial
-            $this->createInitialReputation();
+            $this->createInitialReputation($user_id);
+            $stmt->close();
             return array('success' => true, 'message' => 'Usuario registrado exitosamente');
         } else {
+            $stmt->close();
             return array('success' => false, 'message' => 'Error al registrar: ' . $stmt->error);
         }
     }
@@ -71,8 +74,7 @@ class User {
     /**
      * Crear reputacion inicial
      */
-    private function createInitialReputation() {
-        $user_id = $this->conn->insert_id;
+    private function createInitialReputation($user_id) {
         $query = "INSERT INTO reputacion (id_usuario, puntos_totales, nivel, fecha_actualizacion)
                   VALUES (?, 0, 'bronce', NOW())";
         $stmt = $this->conn->prepare($query);
@@ -90,6 +92,7 @@ class User {
         $stmt->bind_param('s', $this->email);
         $stmt->execute();
         $result = $stmt->get_result();
+        $stmt->close();
         return $result->num_rows > 0;
     }
 
@@ -102,6 +105,7 @@ class User {
         $stmt->bind_param('s', $this->dni);
         $stmt->execute();
         $result = $stmt->get_result();
+        $stmt->close();
         return $result->num_rows > 0;
     }
 
@@ -113,7 +117,9 @@ class User {
         $stmt = $this->conn->prepare($query);
         $stmt->bind_param('s', $this->email);
         $stmt->execute();
-        return $stmt->get_result();
+        $result = $stmt->get_result();
+        $stmt->close();
+        return $result;
     }
 
     /**
@@ -124,7 +130,9 @@ class User {
         $stmt = $this->conn->prepare($query);
         $stmt->bind_param('i', $id);
         $stmt->execute();
-        return $stmt->get_result()->fetch_assoc();
+        $result = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return $result;
     }
 
     /**
